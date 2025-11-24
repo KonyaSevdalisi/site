@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Karanlık Tıklama</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&display=swap');
+
+        body {
+            font-family: 'Rajdhani', sans-serif;
+            background-color: #0f172a; /* Slate 900 */
+            user-select: none;
+            overflow: hidden;
+        }
+
+        /* Tıklama Efekti Animasyonu */
+        .click-anim {
+            animation: pulse-click 0.1s ease-in-out;
+        }
+
+        @keyframes pulse-click {
+            0% { transform: scale(1); }
+            50% { transform: scale(0.95); }
+            100% { transform: scale(1); }
+        }
+
+        /* Uçan Yazı (Kazanılan Para) Animasyonu */
+        .float-text {
+            position: absolute;
+            color: #4ade80; /* Green 400 */
+            font-weight: bold;
+            font-size: 1.5rem;
+            pointer-events: none;
+            animation: floatUp 1s ease-out forwards;
+            z-index: 50;
+            text-shadow: 0 0 5px rgba(74, 222, 128, 0.5);
+        }
+
+        @keyframes floatUp {
+            0% { opacity: 1; transform: translateY(0) scale(1); }
+            100% { opacity: 0; transform: translateY(-50px) scale(1.2); }
+        }
+
+        /* Karakterin (Küre) Parlaması */
+        .orb-glow {
+            box-shadow: 0 0 30px rgba(139, 92, 246, 0.3);
+            transition: all 0.3s ease;
+        }
+        .orb-glow:hover {
+            box-shadow: 0 0 50px rgba(139, 92, 246, 0.6);
+            cursor: pointer;
+        }
+
+        /* Kaydırma Çubuğu Özelleştirme */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1e293b;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #64748b;
+        }
+
+        /* Admin Panel Animasyonu */
+        #admin-panel {
+            transition: opacity 0.2s ease-in-out;
+        }
+
+        /* --- Arkaplan Hayalet Animasyonu (GÜNCELLENDİ: Sallanma ve Netlik) --- */
+        .ghost-bg-anim {
+            position: absolute;
+            color: rgba(241, 245, 249, 0.6); /* Çok daha belirgin (Slate-100, 0.6 opaklık) */
+            pointer-events: none;
+            z-index: 5; 
+            /* Animasyon süresini biraz kısalttık daha hızlı aksın diye (4s) */
+            animation: floatSway 4s ease-in-out forwards;
+            filter: drop-shadow(0 0 5px rgba(255,255,255,0.2)); /* Hafif bir parlama ekledik */
+        }
+
+        @keyframes floatSway {
+            0% { 
+                transform: translate(0, 100vh) scale(0.5) rotate(0deg); 
+                opacity: 0; 
+            }
+            10% { opacity: 0.8; } /* Hemen görünür ol */
+            25% { transform: translate(40px, 75vh) scale(0.7) rotate(10deg); }
+            50% { transform: translate(-40px, 50vh) scale(0.9) rotate(-10deg); opacity: 0.8; }
+            75% { transform: translate(40px, 25vh) scale(1.1) rotate(10deg); }
+            100% { 
+                /* Ekranın tamamen üzerine çıkana kadar devam et */
+                transform: translate(0, -20vh) scale(1.3) rotate(0deg); 
+                opacity: 0; 
+            }
+        }
+
+        /* Panel Geçiş Animasyonları */
+        .panel-transition {
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+    </style>
+</head>
+<body class="h-screen w-screen text-slate-200 flex flex-col md:flex-row overflow-hidden relative">
+
+    <!-- YÖNETİCİ PANELİ (MODAL) -->
+    <div id="admin-panel" class="hidden fixed inset-0 bg-black/80 z-[100] flex items-center justify-center backdrop-blur-sm">
+        <div class="bg-slate-900 p-8 rounded-2xl border border-purple-500/50 w-96 shadow-2xl relative">
+            <button onclick="toggleAdminPanel()" class="absolute top-4 right-4 text-slate-500 hover:text-white">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+            <h2 class="text-2xl font-bold text-purple-400 mb-6 flex items-center">
+                <i class="fas fa-tools mr-3"></i> Geliştirici Paneli
+            </h2>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm text-slate-400 mb-1">Mevcut Ruh (Para)</label>
+                    <input type="number" id="input-money" class="w-full bg-slate-800 border border-slate-700 rounded p-2 text-white focus:border-purple-500 outline-none transition-colors">
+                </div>
+                <div>
+                    <label class="block text-sm text-slate-400 mb-1">Tıklama Gücü</label>
+                    <input type="number" id="input-power" class="w-full bg-slate-800 border border-slate-700 rounded p-2 text-white focus:border-purple-500 outline-none transition-colors">
+                </div>
+                <div class="pt-4 border-t border-slate-800 flex space-x-3">
+                    <button onclick="saveAdminSettings()" class="flex-1 bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-4 rounded transition-colors">
+                        <i class="fas fa-save mr-2"></i>Kaydet
+                    </button>
+                    <button onclick="resetGame()" class="bg-red-900/50 hover:bg-red-600 border border-red-900 hover:border-red-500 text-red-200 hover:text-white py-2 px-4 rounded transition-colors" title="Oyunu Sıfırla">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- PANEL AÇMA BUTONLARI (Gizlenmiş Kenar Çubukları İçin) -->
+    <button id="left-open-btn" onclick="toggleLeftPanel()" class="hidden absolute left-0 top-1/2 transform -translate-y-1/2 bg-slate-800 text-purple-400 p-3 rounded-r-xl border-y border-r border-slate-700 hover:bg-slate-700 z-50 transition-all shadow-lg hover:pr-5 group">
+        <i class="fas fa-chevron-right group-hover:scale-125 transition-transform"></i>
+    </button>
+
+    <button id="right-open-btn" onclick="toggleRightPanel()" class="hidden absolute right-0 top-1/2 transform -translate-y-1/2 bg-slate-800 text-yellow-500 p-3 rounded-l-xl border-y border-l border-slate-700 hover:bg-slate-700 z-50 transition-all shadow-lg hover:pl-5 group">
+        <i class="fas fa-chevron-left group-hover:scale-125 transition-transform"></i>
+    </button>
+
+    <!-- SOL PANEL: İstatistikler ve Hedef -->
+    <div id="left-panel" class="panel-transition w-full md:w-1/4 bg-slate-900 border-r border-slate-800 p-6 flex flex-col justify-between z-10 shadow-xl relative whitespace-nowrap">
+        
+        <!-- Gizleme Butonu (Sol) -->
+        <button onclick="toggleLeftPanel()" class="absolute top-2 right-2 text-slate-600 hover:text-white p-2 transition-colors" title="Paneli Gizle">
+            <i class="fas fa-chevron-left"></i>
+        </button>
+
+        <!-- Üst Bilgi -->
+        <div>
+            <div class="flex justify-between items-center mb-6">
+                <h1 class="text-3xl font-bold text-purple-400 tracking-wider"><i class="fas fa-ghost mr-2"></i>SOUL</h1>
+                <!-- Admin Butonu -->
+                <button onclick="toggleAdminPanel()" class="text-slate-600 hover:text-purple-400 transition-colors p-2 rounded-full hover:bg-slate-800 mr-6">
+                    <i class="fas fa-cog text-xl"></i>
+                </button>
+            </div>
+            
+            <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 mb-4 shadow-lg">
+                <p class="text-slate-400 text-sm uppercase tracking-wide">Mevcut Ruh (Para)</p>
+                <div class="flex items-center mt-2">
+                    <i class="fas fa-gem text-emerald-400 text-2xl mr-3"></i>
+                    <span id="money-display" class="text-4xl font-bold text-white">0</span>
+                </div>
+            </div>
+
+            <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 shadow-lg">
+                <p class="text-slate-400 text-sm uppercase tracking-wide">Tıklama Gücü</p>
+                <div class="flex items-center mt-2">
+                    <i class="fas fa-hand-sparkles text-purple-400 text-xl mr-3"></i>
+                    <span id="power-display" class="text-2xl font-bold text-purple-200">+1</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Hedef Paneli -->
+        <div class="mt-6 bg-gradient-to-br from-slate-800 to-slate-900 p-5 rounded-xl border border-indigo-900/50 relative overflow-hidden">
+            <div class="absolute top-0 right-0 w-16 h-16 bg-indigo-500 blur-3xl opacity-20"></div>
+            <h3 class="text-indigo-300 font-bold mb-3 border-b border-slate-700 pb-2">SIRADAKİ HEDEF</h3>
+            
+            <div id="target-info">
+                <p id="target-name" class="text-lg text-white font-semibold truncate">Hesaplanıyor...</p>
+                <p class="text-sm text-slate-400 mt-1">Fiyat: <span id="target-price" class="text-yellow-400">0</span></p>
+                
+                <div class="mt-3 pt-3 border-t border-slate-700/50">
+                    <p class="text-xs text-slate-400 mb-1">Gereken Miktar:</p>
+                    <p id="target-needed" class="text-red-400 font-bold text-xl">0</p>
+                </div>
+            </div>
+            <div id="target-completed" class="hidden text-center py-4">
+                <i class="fas fa-crown text-4xl text-yellow-500 mb-2"></i>
+                <p class="text-emerald-400 font-bold">MARKETİN HAKİMİSİN!</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ORTA PANEL: Oyun Alanı -->
+    <div id="center-panel" class="flex-1 bg-slate-950 relative flex flex-col items-center justify-center p-4 transition-all duration-300">
+        <!-- Arkaplan efekti -->
+        <div class="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-slate-900 via-slate-950 to-black opacity-80 pointer-events-none"></div>
+        
+        <!-- Tıklanabilir Karakter -->
+        <div id="click-area" class="relative z-10 group">
+            <div id="main-character" class="w-64 h-64 bg-slate-800 rounded-full flex items-center justify-center orb-glow border-4 border-slate-700 group-hover:border-purple-500 transition-colors duration-300">
+                <i class="fas fa-skull text-8xl text-slate-200 group-hover:text-purple-400 transition-colors duration-300"></i>
+            </div>
+            <!-- Altındaki gölge -->
+            <div class="absolute -bottom-10 left-1/2 transform -translate-x-1/2 w-48 h-12 bg-black blur-xl opacity-50"></div>
+        </div>
+
+        <p class="mt-8 text-slate-500 z-10 animate-pulse font-semibold tracking-widest">RUH TOPLAMAK İÇİN TIKLA</p>
+    </div>
+
+    <!-- SAĞ PANEL: Market -->
+    <div id="right-panel" class="panel-transition w-full md:w-1/4 bg-slate-900 border-l border-slate-800 flex flex-col z-10 shadow-xl h-full relative whitespace-nowrap">
+        
+        <!-- Gizleme Butonu (Sağ) -->
+        <div class="absolute top-2 left-2 z-20">
+            <button onclick="toggleRightPanel()" class="text-slate-600 hover:text-white p-2 transition-colors" title="Paneli Gizle">
+                <i class="fas fa-chevron-right"></i>
+            </button>
+        </div>
+
+        <div class="p-5 pl-12 border-b border-slate-800 bg-slate-900">
+            <h2 class="text-xl font-bold text-white"><i class="fas fa-store mr-2 text-yellow-500"></i>Karanlık Pazar</h2>
+        </div>
+        
+        <!-- Eşya Listesi -->
+        <div id="shop-container" class="flex-1 overflow-y-auto p-4 space-y-3">
+            <!-- Market öğeleri JS ile buraya eklenecek -->
+        </div>
+    </div>
+    
+    <!-- Tıklama Ses Efekti (Buraya eklendi) -->
+    <audio id="click-sound" preload="auto">
+        <!-- 
+            Ses Dosyası: Bu adresi kendi ses dosyanızın URL'siyle değiştirmelisiniz (örn: '/sesler/tik.mp3').
+            Şu an genel kullanıma açık bir örnek ses kullanılmıştır. 
+        -->
+        <source src="https://assets.mixkit.co/sfx/preview/mixkit-game-click-1769.mp3" type="audio/mp3">
+        Tarayıcınız ses öğesini desteklemiyor.!!!!
+    </audio>
+
+    <script>
+        // --- Oyun Verileri ve Durumu ---
+        let gameState = {
+            money: 0,
+            clickValue: 1,
+            items: [
+                { id: 1, name: "Paslı Hançer", cost: 15, power: 1, icon: "fa-khanda" },
+                { id: 2, name: "Gölge Eldiveni", cost: 100, power: 5, icon: "fa-mitten" },
+                { id: 3, name: "Ruh Feneri", cost: 500, power: 20, icon: "fa-lightbulb" },
+                { id: 4, name: "Kemik Asa", cost: 2000, power: 50, icon: "fa-staff-snake" },
+                { id: 5, name: "Vampir Dişi", cost: 7500, power: 150, icon: "fa-tooth" },
+                { id: 6, name: "Karanlık Kitap", cost: 25000, power: 400, icon: "fa-book-skull" },
+                { id: 7, name: "Azrailin Tırpanı", cost: 100000, power: 1000, icon: "fa-scythe" }
+            ]
+        };
+
+        // --- DOM Elementleri ---
+        const moneyDisplay = document.getElementById('money-display');
+        const powerDisplay = document.getElementById('power-display');
+        const mainCharacter = document.getElementById('main-character');
+        const shopContainer = document.getElementById('shop-container');
+        const targetName = document.getElementById('target-name');
+        const targetPrice = document.getElementById('target-price');
+        const targetNeeded = document.getElementById('target-needed');
+        const targetInfo = document.getElementById('target-info');
+        const targetCompleted = document.getElementById('target-completed');
+        
+        // Admin Elementleri
+        const adminPanel = document.getElementById('admin-panel');
+        const inputMoney = document.getElementById('input-money');
+        const inputPower = document.getElementById('input-power');
+
+        // Panel Elementleri
+        const leftPanel = document.getElementById('left-panel');
+        const rightPanel = document.getElementById('right-panel');
+        const leftOpenBtn = document.getElementById('left-open-btn');
+        const rightOpenBtn = document.getElementById('right-open-btn');
+
+        // Ses Elementi (Yeni)
+        const clickSound = document.getElementById('click-sound');
+
+
+        // --- PANEL KONTROL FONKSİYONLARI ---
+        function toggleLeftPanel() {
+            if (leftPanel.classList.contains('w-0')) {
+                // Aç
+                leftPanel.classList.remove('w-0', 'p-0', 'opacity-0', 'border-0', 'overflow-hidden');
+                leftPanel.classList.add('w-full', 'md:w-1/4', 'p-6', 'opacity-100', 'border-r');
+                leftOpenBtn.classList.add('hidden');
+            } else {
+                // Kapat
+                leftPanel.classList.remove('w-full', 'md:w-1/4', 'p-6', 'opacity-100', 'border-r');
+                leftPanel.classList.add('w-0', 'p-0', 'opacity-0', 'border-0', 'overflow-hidden');
+                leftOpenBtn.classList.remove('hidden');
+            }
+        }
+
+        function toggleRightPanel() {
+            if (rightPanel.classList.contains('w-0')) {
+                // Aç
+                rightPanel.classList.remove('w-0', 'p-0', 'opacity-0', 'border-0', 'overflow-hidden');
+                rightPanel.classList.add('w-full', 'md:w-1/4', 'opacity-100', 'border-l');
+                // Sağ panelde padding yapısı biraz farklı olduğu için iç elementleri CSS ile kontrol ediyoruz
+                rightOpenBtn.classList.add('hidden');
+            } else {
+                // Kapat
+                rightPanel.classList.remove('w-full', 'md:w-1/4', 'opacity-100', 'border-l');
+                rightPanel.classList.add('w-0', 'p-0', 'opacity-0', 'border-0', 'overflow-hidden');
+                rightOpenBtn.classList.remove('hidden');
+            }
+        }
+
+        // --- Temel Fonksiyonlar ---
+
+        function updateUI() {
+            moneyDisplay.textContent = Math.floor(gameState.money).toLocaleString();
+            powerDisplay.textContent = "+" + gameState.clickValue.toLocaleString();
+
+            gameState.items.forEach(item => {
+                const btn = document.getElementById(`btn-buy-${item.id}`);
+                if (btn) {
+                    if (gameState.money >= item.cost) {
+                        btn.classList.remove('opacity-50', 'cursor-not-allowed', 'grayscale');
+                        btn.classList.add('hover:bg-slate-700', 'cursor-pointer', 'border-slate-600');
+                        btn.querySelector('.buy-text').textContent = "SATIN AL";
+                        btn.querySelector('.buy-text').classList.add('text-green-400');
+                        btn.querySelector('.buy-text').classList.remove('text-red-500');
+                    } else {
+                        btn.classList.add('opacity-50', 'cursor-not-allowed', 'grayscale');
+                        btn.classList.remove('hover:bg-slate-700', 'cursor-pointer', 'border-slate-600');
+                        btn.querySelector('.buy-text').textContent = "YETERSİZ";
+                        btn.querySelector('.buy-text').classList.remove('text-green-400');
+                        btn.querySelector('.buy-text').classList.add('text-red-500');
+                    }
+                }
+            });
+
+            updateTargetInfo();
+        }
+
+        function updateTargetInfo() {
+            let nextTarget = gameState.items.find(item => item.cost > gameState.money);
+
+            if (!nextTarget) {
+                if(gameState.money > gameState.items[gameState.items.length-1].cost * 5) {
+                     targetInfo.classList.add('hidden');
+                     targetCompleted.classList.remove('hidden');
+                     return;
+                }
+                nextTarget = gameState.items[gameState.items.length - 1];
+            }
+
+            targetInfo.classList.remove('hidden');
+            targetCompleted.classList.add('hidden');
+
+            targetName.textContent = nextTarget.name;
+            targetPrice.textContent = nextTarget.cost.toLocaleString();
+
+            const needed = nextTarget.cost - gameState.money;
+            
+            if (needed <= 0) {
+                targetNeeded.textContent = "ALINABİLİR!";
+                targetNeeded.className = "text-emerald-400 font-bold text-xl animate-pulse";
+            } else {
+                targetNeeded.textContent = needed.toLocaleString();
+                targetNeeded.className = "text-red-400 font-bold text-xl";
+            }
+        }
+
+        function createShop() {
+            shopContainer.innerHTML = "";
+            gameState.items.forEach(item => {
+                const itemEl = document.createElement('div');
+                itemEl.id = `btn-buy-${item.id}`;
+                itemEl.className = "bg-slate-800 p-3 rounded-lg border border-slate-700 flex items-center justify-between transition-all duration-200 opacity-50 cursor-not-allowed grayscale select-none";
+                itemEl.onclick = () => buyItem(item);
+
+                itemEl.innerHTML = `
+                    <div class="flex items-center space-x-3">
+                        <div class="w-10 h-10 bg-slate-700 rounded-full flex items-center justify-center text-purple-400">
+                            <i class="fas ${item.icon}"></i>
+                        </div>
+                        <div>
+                            <h4 class="font-bold text-sm text-slate-200">${item.name}</h4>
+                            <p class="text-xs text-slate-500">+${item.power} Güç</p>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-yellow-500 font-bold text-sm"><i class="fas fa-gem text-xs mr-1"></i>${item.cost.toLocaleString()}</div>
+                        <div class="buy-text text-[10px] font-bold mt-1 text-red-500">YETERSİZ</div>
+                    </div>
+                `;
+                shopContainer.appendChild(itemEl);
+            });
+        }
+
+        function buyItem(item) {
+            if (gameState.money >= item.cost) {
+                gameState.money -= item.cost;
+                gameState.clickValue += item.power;
+                item.cost = Math.floor(item.cost * 1.2);
+                
+                const btn = document.getElementById(`btn-buy-${item.id}`);
+                btn.classList.add('ring-2', 'ring-green-500');
+                setTimeout(() => btn.classList.remove('ring-2', 'ring-green-500'), 200);
+
+                createShop();
+                updateUI();
+            }
+        }
+
+        // --- YÖNETİCİ PANELİ ---
+        function toggleAdminPanel() {
+            adminPanel.classList.toggle('hidden');
+            if (!adminPanel.classList.contains('hidden')) {
+                inputMoney.value = Math.floor(gameState.money);
+                inputPower.value = gameState.clickValue;
+            }
+        }
+
+        function saveAdminSettings() {
+            const newMoney = parseInt(inputMoney.value);
+            const newPower = parseInt(inputPower.value);
+            if (!isNaN(newMoney) && newMoney >= 0) gameState.money = newMoney;
+            if (!isNaN(newPower) && newPower >= 1) gameState.clickValue = newPower;
+            updateUI();
+            toggleAdminPanel();
+            showFloatingText(window.innerWidth / 2, window.innerHeight / 2, "HİLE AKTİF!");
+        }
+
+        // ÖZEL MODAL SIFIRLAMA FONKSİYONU (Kullanıcının alert/confirm görmemesi için)
+        function resetGame() {
+            // Normalde bu tarz işlemler için özel bir modal/UI kullanılır.
+            // Basitlik için tarayıcıdaki confirm kullanılıyor (ancak sandbox/iframe kısıtlamaları olabilir).
+            if (window.confirm("Tüm ilerlemen silinecek. Emin misin?")) {
+                gameState.money = 0;
+                gameState.clickValue = 1;
+                // Oyun sıfırlandığında sayfayı yeniden yükle
+                location.reload(); 
+            } else {
+                console.log("Sıfırlama iptal edildi.");
+            }
+        }
+
+        // --- Ses Çalma Fonksiyonu (Yeni) ---
+        function playClickSound() {
+            // Sesi baştan oynatmak için time'ı sıfırla (hızlı tıklamalar için gerekli)
+            clickSound.currentTime = 0;
+            try {
+                // Sesi çalmayı dene
+                clickSound.play();
+            } catch (error) {
+                // Ses otomatik olarak çalınamazsa konsola hata mesajı yazdır
+                console.error("Ses çalınamadı (Tarayıcı otomatik oynatma engeli olabilir):", error);
+            }
+        }
+
+        // --- Tıklama Olayları ---
+        mainCharacter.addEventListener('mousedown', (e) => {
+            mainCharacter.parentElement.classList.remove('click-anim');
+            void mainCharacter.parentElement.offsetWidth;
+            mainCharacter.parentElement.classList.add('click-anim');
+
+            gameState.money += gameState.clickValue;
+            
+            // Yeni: Ses çal
+            playClickSound();
+
+            // Her tıklamada hayalet çıkar
+            spawnGhost();
+
+            updateUI();
+            showFloatingText(e.clientX, e.clientY, `+${gameState.clickValue}`);
+        });
+
+        function spawnGhost() {
+            const ghost = document.createElement('i');
+            ghost.className = 'fas fa-ghost ghost-bg-anim';
+            const size = 3 + Math.random() * 4; 
+            ghost.style.fontSize = `${size}rem`;
+            
+            const randomX = Math.random() * (window.innerWidth - 100); 
+            ghost.style.left = `${randomX}px`;
+            ghost.style.bottom = '-150px';
+
+            document.body.appendChild(ghost);
+            setTimeout(() => { ghost.remove(); }, 4000); // 4 saniye sonra temizle (animasyon süresi kadar)
+        }
+
+        function showFloatingText(x, y, text) {
+            const el = document.createElement('div');
+            el.className = 'float-text';
+            el.textContent = text;
+            const randomX = (Math.random() - 0.5) * 40;
+            el.style.left = `${x + randomX}px`;
+            el.style.top = `${y - 20}px`;
+            document.body.appendChild(el);
+            setTimeout(() => { el.remove(); }, 1000);
+        }
+
+        createShop();
+        updateUI();
+
+    </script>
+</body>
+</html>
